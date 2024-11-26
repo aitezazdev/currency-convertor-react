@@ -6,7 +6,8 @@ const App = () => {
   const [fromCurrency, setFromCurrency] = useState("USD");
   const [toCurrency, setToCurrency] = useState("PKR");
   const [amount, setAmount] = useState(1);
-  const [result, setResult] = useState(0);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState("");
 
   const API_URL = `https://open.er-api.com/v6/latest/${fromCurrency}`;
 
@@ -15,34 +16,59 @@ const App = () => {
       .get(API_URL)
       .then((response) => {
         setCurrencies(Object.keys(response.data.rates));
-        convert();
       })
-      .catch((error) => console.error("Error fetching data: ", error));
-  }, [fromCurrency, toCurrency]);
+      .catch(() => {
+        setError("Failed to load currency data. Try again later.");
+      });
+  }, [fromCurrency]);
+
+  const handleAmountChange = (e) => {
+    const value = Number(e.target.value);
+    setAmount(value);
+    if (value > 0) setError("");
+  };
 
   const convert = () => {
-    axios.get(API_URL).then((response) => {
-      const rate = response.data.rates[toCurrency];
-      setResult((amount * rate).toFixed(2));
-    });
+    if (amount <= 0) {
+      setError("Please enter a valid amount greater than 0.");
+      return;
+    }
+
+    setError("");
+    axios
+      .get(API_URL)
+      .then((response) => {
+        const rate = response.data.rates[toCurrency];
+        if (!rate) {
+          setError("Conversion rate not available for the selected currencies.");
+          setResult(null);
+        } else {
+          setResult((amount * rate).toFixed(2));
+        }
+      })
+      .catch(() => {
+        setError("Error fetching conversion rate. Please try again.");
+        setResult(null);
+      });
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-      <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
-        <h1 className="text-2xl font-bold text-gray-800 text-center mb-4">
+    <div className="min-h-screen bg-zinc-500 flex items-center justify-center">
+      <div className="bg-zinc-900 p-8 rounded-lg shadow-md w-full max-w-md">
+        <h1 className="text-2xl font-bold text-white text-center mb-4">
           Currency Converter
         </h1>
         <div className="flex flex-col gap-4">
           <input
             type="number"
             value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            onChange={handleAmountChange}
             className="p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="Enter amount"
           />
+          {error && <p className="text-red-500">{error}</p>}
           <div className="flex gap-4 items-center">
-            {/* From */}
+            {/* From Currency Selector */}
             <div className="flex flex-col w-1/2">
               <label className="font-medium text-gray-600 mb-1">From:</label>
               <select
@@ -57,7 +83,7 @@ const App = () => {
                 ))}
               </select>
             </div>
-            {/* To */}
+            {/* To Currency Selector */}
             <div className="flex flex-col w-1/2">
               <label className="font-medium text-gray-600 mb-1">To:</label>
               <select
@@ -80,8 +106,10 @@ const App = () => {
             Convert
           </button>
         </div>
-        <h2 className="text-xl font-semibold text-gray-700 text-center mt-6">
-          {amount} {fromCurrency} = {result} {toCurrency}
+        <h2 className="text-xl font-semibold text-white text-center mt-6">
+          {amount > 0 && result !== null
+            ? `${amount} ${fromCurrency} = ${result} ${toCurrency}`
+            : "Enter a valid amount to see the result."}
         </h2>
       </div>
     </div>
